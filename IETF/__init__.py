@@ -164,7 +164,15 @@ class Document(FileBacked):
         meta["_revisions"] = { f"{i:02d}": {} for i in range(int(meta["rev"])+1) }
         for slink in meta["submissions"]:
             s = Submission(int(slink.split("/api/v1/submit/submission/")[1].split("/")[0]))
-            assert("submission" not in meta["_revisions"][s.rev])
+            try:
+                old_id = meta["_revisions"][s.rev]["submission"]
+                try:
+                    meta["_revisions"][s.rev]["overridden_submissions"].append(old_id)
+                except KeyError:
+                    meta["_revisions"][s.rev]["overridden_submissions"] = [ old_id ]
+            except KeyError:
+                pass
+
             meta["_revisions"][s.rev]["submission"] = s.id
 
         return meta
