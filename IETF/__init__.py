@@ -28,7 +28,9 @@ class Download:
         self.uri = uri
 
     def get(self):
-        r = requests.get(self.uri)
+        r = requests.get(self.uri, headers={
+            "user-agent": "marenamat-ietf-mirror/0.0.1",
+            })
         if r.ok:
             return r.text
         else:
