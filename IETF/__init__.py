@@ -10,9 +10,18 @@ def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
 class DownloadException(Exception):
+    def __new__(cls, *args, request, **kwargs):
+        if request.status_code == 404 and cls is not NotFoundException:
+            return NotFoundException(*args, request=request, **kwargs)
+        else:
+            return super(DownloadException, cls).__new__(cls, *args, **kwargs)
+
     def __init__(self, *args, request, **kwargs):
         super().__init__(*args, **kwargs)
         self.request = request
+
+class NotFoundException(DownloadException):
+    pass
 
 class Download:
     def __init__(self, uri):
@@ -103,6 +112,12 @@ class IETF(FileBacked):
                 continue
 
             # TODO end if that nothing new is there
+            try:
+                s.meta
+            except NotFoundException:
+                ietf.store()
+                continue
+
             s.document.mirror(s.rev)
             ietf.store()
             loaded.append(s.document)
@@ -215,10 +230,9 @@ class Document(FileBacked):
                         eprint(f"W: Re-downloading {fn}!")
                     try:
                         contents = ArchiveDownload(fn).get()
-                    except DownloadException as de:
-                        if de.request.status_code == 404:
-                            fts[ft] = False
-                            continue
+                    except NotFoundException as de:
+                        fts[ft] = False
+                        continue
 
                     with open(fp, "w") as f:
                         f.write(contents)
