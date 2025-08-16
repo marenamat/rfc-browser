@@ -2,12 +2,10 @@ import abc
 import json
 import pathlib
 import requests
-import sys
+
+from .Auxiliary import eprint
 
 datadir = pathlib.Path("../data/")
-
-def eprint(*args, **kwargs):
-    print(*args, file=sys.stderr, **kwargs)
 
 class DownloadException(Exception):
     def __new__(cls, *args, request, **kwargs):
