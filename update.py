@@ -9,7 +9,9 @@ while True:
     if begin:
         begin = False
     else:
-        time.sleep(random.randrange(5, 30))
+        s = random.randrange(2, 10)
+        print("Sleeping for {s} s")
+        time.sleep(s)
 
     try:
         print("Loading …")
