@@ -4,8 +4,7 @@ import pathlib
 import requests
 
 from .Auxiliary import eprint
-
-datadir = pathlib.Path("../data/")
+from .Config import datadir
 
 class DownloadException(Exception):
     def __new__(cls, *args, request, **kwargs):
@@ -260,3 +259,5 @@ class Document(FileBacked):
 
 def refresh(*args, **kwargs):
     return IETF().refresh()
+
+__all__ = [ refresh, datadir, DownloadException ]
