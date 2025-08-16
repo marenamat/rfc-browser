@@ -1,85 +1,14 @@
-import abc
-import json
 import pathlib
-import requests
 
-from .Auxiliary import eprint
+from .Auxiliary import \
+        eprint, \
+        FileBacked, \
+        ArchiveDownload, \
+        APIDownload, \
+        NotFoundException, \
+        DownloadException
+
 from .Config import datadir
-
-class DownloadException(Exception):
-    def __new__(cls, *args, request, **kwargs):
-        if request.status_code == 404 and cls is not NotFoundException:
-            return NotFoundException(*args, request=request, **kwargs)
-        else:
-            return super(DownloadException, cls).__new__(cls, *args, **kwargs)
-
-    def __init__(self, *args, request, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.request = request
-
-class NotFoundException(DownloadException):
-    pass
-
-class Download:
-    def __init__(self, uri):
-        self.uri = uri
-
-    def get(self):
-        r = requests.get(self.uri, headers={
-            "user-agent": "marenamat-ietf-mirror/0.0.1",
-            })
-        if r.ok:
-            return r.text
-        else:
-            raise DownloadException(request=r)
-
-class APIDownload(Download):
-    def __init__(self, endpoint, **kwargs):
-        super().__init__(f"https://datatracker.ietf.org/api/{endpoint}?" + \
-                "&".join([
-                    f"{k}={v}" for k,v in kwargs.items() if v is not None
-                    ]), **kwargs)
-
-    def get_json(self):
-        return json.loads(self.get())
-
-class ArchiveDownload(Download):
-    def __init__(self, file):
-        super().__init__(f"https://www.ietf.org/archive/id/{file}")
-
-class FileBacked(abc.ABC):
-    @abc.abstractmethod
-    def filename(self):
-        pass
-
-    @property
-    def meta(self):
-        try:
-            return self._meta
-        except AttributeError:
-            pass
-
-        try:
-            with open(datadir / self.filename(), "r") as f:
-                self._meta = json.load(f)
-        except FileNotFoundError:
-            self._meta = self.download()
-            self.store()
-
-        return self._meta
-
-    @meta.setter
-    def meta(self, value):
-        self._meta = value
-        self.store()
-
-    def store(self):
-        with open(datadir / self.filename(), "w") as f:
-            json.dump(self._meta, f)
-
-    @property
-    def islocal(self):
-        return (datadir / self.filename()).exists()
 
 class IETF(FileBacked):
     def __new__(cls, *args, **kwargs):
