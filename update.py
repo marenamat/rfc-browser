@@ -10,7 +10,7 @@ while True:
         begin = False
     else:
         s = random.randrange(2, 10)
-        print("Sleeping for {s} s")
+        print(f"Sleeping for {s} s")
         time.sleep(s)
 
     try:
@@ -29,4 +29,5 @@ while True:
 
     os.chdir(IETF.datadir)
     subprocess.run(["git", "add", "document/*", "submission/*", "meta.json"])
-    subprocess.run(["git", "commit", "-m", f"Auto: {loaded[0].name}"])
+    subprocess.run(["git", "commit", "--quiet", "-m", f"Auto: {loaded[0].name}"])
+    subprocess.run(["git", "show", "-s", "--shortstat"])
