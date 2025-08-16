@@ -120,7 +120,13 @@ class IETF(FileBacked):
                 ietf.store()
                 continue
 
-            s.document.mirror(s.rev)
+            try:
+                s.document.mirror(s.rev)
+            except DocumentNotFound as e:
+                print(e)
+                ietf.store()
+                continue
+
             ietf.store()
             loaded.append(s.document)
 
@@ -163,6 +169,11 @@ class Submission(FileBacked):
     def document(self):
         return Document(self.name)
 
+class DocumentNotFound(Exception):
+    def __init__(self, document):
+        super().__init__(f"Document {document.name} does not exist")
+        self.document = document
+
 class Document(FileBacked):
     def __init__(self, name: str, *args, **kwargs):
         self.name = name
@@ -172,7 +183,11 @@ class Document(FileBacked):
         return f"document/{self.name}.json"
 
     def download(self):
-        meta = APIDownload(f"v1/doc/document/{self.name}").get_json()
+        try:
+            meta = APIDownload(f"v1/doc/document/{self.name}").get_json()
+        except NotFoundException as e:
+            raise DocumentNotFound(self) from e
+
         if meta["name"] != self.name:
             eprint(meta)
             raise AssertionError(f"Received a garbled document record for {self.name}")
