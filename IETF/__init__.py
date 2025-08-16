@@ -120,7 +120,7 @@ class IETF(FileBacked):
 
             try:
                 s.document.mirror(s.rev)
-            except DocumentNotFound as e:
+            except DocumentNotFoundException as e:
                 print(e)
                 ietf.store()
                 continue
@@ -167,7 +167,7 @@ class Submission(FileBacked):
     def document(self):
         return Document(self.name)
 
-class DocumentNotFound(Exception):
+class DocumentNotFoundException(Exception):
     def __init__(self, document):
         super().__init__(f"Document {document.name} does not exist")
         self.document = document
@@ -184,7 +184,7 @@ class Document(FileBacked):
         try:
             meta = APIDownload(f"v1/doc/document/{self.name}").get_json()
         except NotFoundException as e:
-            raise DocumentNotFound(self) from e
+            raise DocumentNotFoundException(self) from e
 
         if meta["name"] != self.name:
             eprint(meta)
