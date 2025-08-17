@@ -3,8 +3,9 @@ import pathlib
 from .Auxiliary import \
         eprint, \
         FileBacked, \
-        ArchiveDownload, \
         APIDownload, \
+        ArchiveDownload, \
+        RFCDownload, \
         NotFoundException, \
         DownloadException
 
@@ -24,13 +25,83 @@ class IETF(FileBacked):
         ietf.documents = {}
 
     def download(self):
-        return { "last_submission_id": 1990 }
+        return {
+                "last_submission_id": 1990,
+                "rfc_total_count": 0,
+                }
 
     def filename(ietf):
         return "meta.json"
 
     def refresh(ietf, limit: int = 1):
         loaded = []
+        while limit > 0:
+            # Is there any RFC pending download?
+            try:
+                pending = ietf.meta["rfc_missing"]
+            except KeyError:
+                pending = []
+
+            if len(pending) == 0:
+                break
+
+            rfc = RFC(pending[0])
+            try:
+                rfc.mirror()
+            except DocumentNotFoundException as e:
+                print(e)
+
+            ietf.meta["rfc_missing"] = pending[1:]
+
+            try:
+                if rfc.meta["time"] > ietf.meta["rfc_newest_time"]:
+                    ietf.meta["rfc_newest_time"] = rfc.meta["time"]
+            except KeyError:
+                ietf.meta["rfc_newest_time"] = rfc.meta["time"]
+
+            ietf.store()
+            loaded.append(rfc)
+            limit -= 1
+
+        if len(loaded):
+            return loaded
+
+        while limit > 0:
+            # Is there any new RFC we don't know about?
+            assert(len(ietf.meta["rfc_missing"]) == 0)
+            newest = ietf.meta["rfc_newest_time"]
+            pending = []
+
+            offset = 0
+            while offset is not None:
+                next_rfc = APIDownload(
+                        "v1/doc/document/",
+                        type="rfc",
+                        time__gte=newest,
+                        limit=100,
+                        offset=offset,
+                        ).get_json()
+
+                for obj in next_rfc["objects"]:
+                    rfc = RFC(obj["name"])
+                    if rfc.islocal:
+                        continue
+
+                    rfc._meta = obj
+                    rfc.store()
+
+                    pending.append(rfc.name)
+
+                if next_rfc["meta"]["next"] is None:
+                    break
+
+                offset += 100
+
+            if len(pending):
+                ietf.meta["rfc_missing"] = pending
+                ietf.store()
+                return self.refresh(limit)
+
         while limit > 0:
             # Is there any new submission?
             ietf.meta["last_submission_id"] += 1
@@ -185,6 +256,38 @@ class Document(FileBacked):
             info["file_types"] = fts
 
         self.store()
+
+class RFC(Document):
+    def __init__(self, name: str, *args, **kwargs):
+        assert(name.startswith("rfc"))
+        super().__init__(*args, name, **kwargs)
+
+    def mirror(self):
+        fts = { k: None for k in ("xml", "html", "txt", "pdf") }
+        suc = 0
+        for fmt in (*(list(fts)), "pdf"):
+            fp = datadir / "document" / f'{self.name}.{fmt}'
+            if fp.exists():
+                fts[fmt] = True
+                continue
+
+            if fmt == "pdf" and suc > 0:
+                continue
+
+            try:
+                contents = RFCDownload(self.name[3:], fmt).get_binary()
+            except NotFoundException:
+                fts[fmt] = False
+                continue
+
+            with open(fp, "wb") as f:
+                f.write(contents)
+
+            fts[fmt] = True
+
+        self.meta["file_types"] = fts
+        self.store()
+
 
 def refresh(*args, **kwargs):
     return IETF().refresh()

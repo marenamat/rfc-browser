@@ -35,12 +35,21 @@ class Download:
         else:
             raise DownloadException(request=r)
 
+    def get_binary(self):
+        r = requests.get(self.uri, headers={
+            "user-agent": "marenamat-ietf-mirror/0.0.1",
+            })
+        if r.ok:
+            return r.content
+        else:
+            raise DownloadException(request=r)
+
 class APIDownload(Download):
     def __init__(self, endpoint, **kwargs):
         super().__init__(f"https://datatracker.ietf.org/api/{endpoint}?" + \
                 "&".join([
                     f"{k}={v}" for k,v in kwargs.items() if v is not None
-                    ]), **kwargs)
+                    ]))
 
     def get_json(self):
         return json.loads(self.get())
@@ -48,6 +57,10 @@ class APIDownload(Download):
 class ArchiveDownload(Download):
     def __init__(self, file):
         super().__init__(f"https://www.ietf.org/archive/id/{file}")
+
+class RFCDownload(Download):
+    def __init__(self, num, fmt):
+        super().__init__(f"https://www.rfc-editor.org/rfc/rfc{num}.{fmt}")
 
 class FileBacked(abc.ABC):
     @abc.abstractmethod
@@ -77,7 +90,7 @@ class FileBacked(abc.ABC):
 
     def store(self):
         with open(datadir / self.filename(), "w") as f:
-            json.dump(self._meta, f)
+            json.dump(self._meta, f, indent=2)
 
     @property
     def islocal(self):
