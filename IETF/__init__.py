@@ -1,4 +1,5 @@
 import pathlib
+import time
 
 from .Auxiliary import \
         eprint, \
@@ -28,6 +29,9 @@ class IETF(FileBacked):
         return {
                 "last_submission_id": 1990,
                 "rfc_total_count": 0,
+                "rfc_next_check": 0,
+                "rfc_newest_time": "1940-01-01T01:01:01Z",
+                "rfc_missing": [],
                 }
 
     def filename(ietf):
@@ -37,11 +41,7 @@ class IETF(FileBacked):
         loaded = []
         while limit > 0:
             # Is there any RFC pending download?
-            try:
-                pending = ietf.meta["rfc_missing"]
-            except KeyError:
-                pending = []
-
+            pending = ietf.meta["rfc_missing"]
             if len(pending) == 0:
                 break
 
@@ -53,10 +53,7 @@ class IETF(FileBacked):
 
             ietf.meta["rfc_missing"] = pending[1:]
 
-            try:
-                if rfc.meta["time"] > ietf.meta["rfc_newest_time"]:
-                    ietf.meta["rfc_newest_time"] = rfc.meta["time"]
-            except KeyError:
+            if rfc.meta["time"] > ietf.meta["rfc_newest_time"]:
                 ietf.meta["rfc_newest_time"] = rfc.meta["time"]
 
             ietf.store()
@@ -66,7 +63,7 @@ class IETF(FileBacked):
         if len(loaded):
             return loaded
 
-        while limit > 0:
+        if time.time() > ietf.meta["rfc_next_check"]:
             # Is there any new RFC we don't know about?
             assert(len(ietf.meta["rfc_missing"]) == 0)
             newest = ietf.meta["rfc_newest_time"]
@@ -97,10 +94,13 @@ class IETF(FileBacked):
 
                 offset += 100
 
+            print(f"New {len(pending)} pending RFCs to load")
             if len(pending):
                 ietf.meta["rfc_missing"] = pending
                 ietf.store()
-                return self.refresh(limit)
+                return ietf.refresh(limit)
+            else:
+                ietf.meta["rfc_next_check"] = time.time() + 10800 # 3 hrs
 
         while limit > 0:
             # Is there any new submission?
