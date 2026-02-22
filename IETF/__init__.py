@@ -190,7 +190,11 @@ class Document(FileBacked):
             raise AssertionError(f"Received a garbled document record for {self.name}")
 
         # Create explicit revision list
-        meta["_revisions"] = { f"{i:02d}": {} for i in range(int(meta["rev"])+1) }
+        if meta["rev"] == "":
+            meta["_revisions"] = {}
+        else:
+            meta["_revisions"] = { f"{i:02d}": {} for i in range(int(meta["rev"])+1) }
+
         for slink in meta["submissions"]:
             s = Submission(int(slink.split("/api/v1/submit/submission/")[1].split("/")[0]))
             try:
@@ -211,7 +215,12 @@ class Document(FileBacked):
         return self.meta["rev"]
 
     def mirror(self, upto: str):
-        revs = self.meta["_revisions"]
+        try:
+            revs = self.meta["_revisions"]
+        except KeyError:
+            eprint(f"W: No revisions of document {self.name}")
+            revs = {}
+
         if upto not in revs:
             nm = self.download()
             for rev, info in nm["_revisions"].items():
